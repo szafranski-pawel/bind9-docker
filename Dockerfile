@@ -1,35 +1,31 @@
 FROM ubuntu:jammy
-MAINTAINER BIND 9 Developers <bind9-dev@isc.org>
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV LC_ALL C.UTF-8
 
-ARG DEB_VERSION=1:9.19.8-1+ubuntu22.04.1+isc+1
+# Install git and other useful scripts
+RUN apt-get -y update && apt-get -y dist-upgrade && apt-get -y install apt-utils iproute2 net-tools git nano htop make autoconf pkg-config libtool libuv1-dev libnghttp2-dev libssl-dev libcap-dev libjemalloc-dev && apt-get autoremove
 
-# Install add-apt-repository command
-RUN apt-get -qqqy update
-RUN apt-get -qqqy dist-upgrade
-RUN apt-get -qqqy install --no-install-recommends apt-utils software-properties-common dctrl-tools gpg-agent
+# Add the BIND 9 Custom Repository
+RUN git clone https://github.com/szafranski-pawel/bind9.git -b IoT
 
-# Add the BIND 9 APT Repository
-RUN add-apt-repository -y ppa:isc/bind-dev
+# Create all necessary dir
+RUN adduser --disabled-password --gecos "" bind
+RUN mkdir -p /etc/bind/ && chown root:bind /etc/bind/ && chmod 755 /etc/bind/
+RUN mkdir -p /run/named/ && chown bind:bind /run/named/ && chmod 755 /run/named/
 
 # Install BIND 9
-RUN apt-get -qqqy update
-RUN apt-get -qqqy dist-upgrade
-RUN apt-get -qqqy install bind9=$DEB_VERSION bind9utils=$DEB_VERSION
+WORKDIR /bind9
+RUN autoreconf -fi && ./configure --prefix '/usr/local/bind' --sysconfdir '/etc/bind' --localstatedir '/' && make install
+RUN ln -s /usr/local/bind/sbin/* /usr/sbin/
+RUN rm -rf /bind9
 
-# Now remove the pkexec that got pulled as dependency to software-properties-common
-RUN apt-get --purge -y autoremove policykit-1
+# Set workdir for named script
+WORKDIR /home/bind
 
-RUN mkdir -p /etc/bind && chown root:bind /etc/bind/ && chmod 755 /etc/bind
-RUN mkdir -p /var/cache/bind && chown bind:bind /var/cache/bind && chmod 755 /var/cache/bind
-RUN mkdir -p /var/lib/bind && chown bind:bind /var/lib/bind && chmod 755 /var/lib/bind
-RUN mkdir -p /var/log/bind && chown bind:bind /var/log/bind && chmod 755 /var/log/bind
-RUN mkdir -p /run/named && chown bind:bind /run/named && chmod 755 /run/named
-
-VOLUME ["/etc/bind", "/var/cache/bind", "/var/lib/bind", "/var/log"]
+VOLUME ["/etc/bind"]
 
 EXPOSE 53/udp 53/tcp 953/tcp
 
-CMD ["/usr/sbin/named", "-g", "-c", "/etc/bind/named.conf", "-u", "bind"]
+CMD ["/usr/sbin/named", "-g", "-c", "/etc/bind/named.conf", "-u", "bind", "-4"]
+# CMD ["tail", "-f", "/dev/null"]

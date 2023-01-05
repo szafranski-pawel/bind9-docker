@@ -1,0 +1,12 @@
+version: "3"
+services:
+  bind9:
+    image: bind9_iot:latest
+    container_name: bind9_iot
+    volumes:
+      # - path_to_configs:/etc/bind
+    ports:
+      - 953:953
+      - 53:53
+      - 53:53/udp
+    restart: unless-stopped
