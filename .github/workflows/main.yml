@@ -3,7 +3,7 @@ name: ci
 on:
   push:
     branches:
-      - "main"
+      - "bind9_docker_IOT"
 
 jobs:
   build:
